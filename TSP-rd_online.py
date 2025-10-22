@@ -78,33 +78,155 @@ def mon_algo_est_deterministe():
 
 
 ##############################################################
+# Fonctions auxiliaires pour l'algorithme
+##############################################################
+
+def get_distance(sommet1, sommet2, sigma_list):
+    """
+    Récupère la distance entre deux sommets.
+    La distance est stockée dans le dictionnaire du sommet arrivé en dernier.
+    """
+    if sommet1 == sommet2:
+        return 0
+
+    # Trouver les temps d'arrivée
+    time1 = None
+    time2 = None
+    for item, t in sigma_list:
+        if sommet1 in item:
+            time1 = t
+        if sommet2 in item:
+            time2 = t
+
+    # Le sommet arrivé en dernier contient la distance
+    if time1 is None or time2 is None:
+        return float('inf')
+
+    if time1 >= time2:
+        outer_key = sommet1
+        inner_key = sommet2
+    else:
+        outer_key = sommet2
+        inner_key = sommet1
+
+    # Chercher la distance dans sigma
+    for item, _ in sigma_list:
+        if outer_key in item:
+            inner_dict = item[outer_key]
+            if inner_key in inner_dict:
+                return inner_dict[inner_key]
+
+    return float('inf')
+
+
+def calcul_cout_insertion(sommet, position, tour, sigma_list):
+    """
+    Calcule le coût d'insertion d'un sommet à une position donnée dans le tour.
+
+    Args:
+        sommet: le sommet à insérer
+        position: la position où insérer (entre position et position+1)
+        tour: le tour actuel
+        sigma_list: la liste complète des sommets découverts
+
+    Returns:
+        Le coût d'insertion (peut être négatif si ça améliore le tour)
+    """
+    if len(tour) < 2:
+        return 0
+
+    sommet_avant = tour[position]
+    sommet_apres = tour[(position + 1) % len(tour)]
+
+    # Coût actuel entre sommet_avant et sommet_apres
+    cout_actuel = get_distance(sommet_avant, sommet_apres, sigma_list)
+
+    # Nouveau coût avec le sommet inséré
+    nouveau_cout = get_distance(sommet_avant, sommet, sigma_list) + \
+                   get_distance(sommet, sommet_apres, sigma_list)
+
+    return nouveau_cout - cout_actuel
+
+
+def trouver_meilleure_position(sommet, tour, sigma_list):
+    """
+    Trouve la meilleure position pour insérer un sommet dans le tour.
+    Respecte la contrainte: un sommet arrivant au temps t ne peut pas
+    être placé avant la position t dans le tour.
+
+    Returns:
+        La position optimale d'insertion
+    """
+    if len(tour) <= 1:
+        return len(tour)
+
+    # Trouver le temps d'arrivée du sommet
+    temps_arrivee = None
+    for item, t in sigma_list:
+        if sommet in item:
+            temps_arrivee = t
+            break
+
+    meilleur_cout = float('inf')
+    meilleure_position = max(1, temps_arrivee) if temps_arrivee is not None else 1
+
+    # Essayer toutes les positions possibles >= temps_arrivee
+    # (contrainte: position >= temps d'arrivée)
+    position_min = temps_arrivee if temps_arrivee is not None else 0
+
+    for i in range(len(tour)):
+        # On peut insérer après la position i, donc la nouvelle position sera i+1
+        nouvelle_position = i + 1
+
+        # Vérifier la contrainte temporelle
+        if nouvelle_position < position_min:
+            continue
+
+        cout = calcul_cout_insertion(sommet, i, tour, sigma_list)
+        if cout < meilleur_cout:
+            meilleur_cout = cout
+            meilleure_position = i
+
+    return meilleure_position
+
+
+##############################################################
 # La fonction à completer pour la compétition
 ##############################################################
 
 def TSP_rd_online(it, next_sommet, sommets_decouverts, sol_online):
     """
-        À faire:         
+        À faire:
         - Écrire une fonction qui construit un tour hamiltonien au fur et à mesure de découverte du graphe en minimisant sa longueur
         le résultat est répertorié dans une variable globale sol_online, liste des sommets du graphe constituant un tour
         ATTENTION : le sommet du début du tour : toujours 'A', le seul sommet disponible à t=0
-  
+
     """
     ###################################################################################
-    # Complétez cette fonction : construisez un tour hamiltonien en minimisant sa longueur
-    # au fur et à mesure de découverte du graphe ; l'algorithme avance en temps ;
-    # il est possible que plusieurs sommets soient découverts au même moment ;
-    # le tour est construit avec des sommets qui viennent d'être découverts et ceux qui ont déjà été découverts,
-    #  mais ils ne sont pas encore intégrés dans la solution
+    # Algorithme: Cheapest Insertion
+    # À chaque appel, on reçoit un nouveau sommet à traiter
+    # On l'insère à la position qui minimise l'augmentation du tour
     ###################################################################################
-    # ATTENTION :
-    #  Le tour doit commencer par le sommet 'A' et finir par le sommet 'A'.
-    # Ce sommet est toujours le seul à apparaître dans la séquence.
-    # ###################################################################################
-    # ATTENTION !!!!
-    # Il'itérateur it est attaché à la séquence de pouvoir lire les sommets arrivant à l'instant t ;
-    # vous devrez retourner it pointant vers les sommets arrivant à l'instant t+1
-    # pour que la fonction puisse continuer à fonctionner ;
-    # ###################################################################################
+
+    # Récupérer le sommet et son temps d'arrivée
+    sommet_dict, temps_actuel = next_sommet
+    sommet_nom = list(sommet_dict.keys())[0]
+
+    # Ajouter le nouveau sommet à la liste des sommets découverts
+    sommets_decouverts.append(next_sommet)
+
+    # Initialisation: si le tour est vide et que c'est 'A', on démarre le tour
+    if len(sol_online) == 0 and sommet_nom == 'A':
+        sol_online.append('A')
+        return it, sommets_decouverts, sol_online
+
+    # Si c'est un autre sommet que A, on l'insère dans le tour
+    if sommet_nom != 'A':
+        # Trouver la meilleure position pour insérer ce sommet
+        meilleure_position = trouver_meilleure_position(sommet_nom, sol_online, sommets_decouverts)
+
+        # Insérer le sommet à la meilleure position
+        sol_online.insert(meilleure_position + 1, sommet_nom)
 
     return it, sommets_decouverts, sol_online # retour nécessaire pour ingestion
 
