@@ -51,6 +51,36 @@ Résultat moyen des ratios: 1.0348
 
 ## Utilisation
 
+### Test de Performance (Recommandé)
+
+Avant de soumettre sur Codabench, testez votre algorithme localement:
+
+```bash
+python3 test_performance.py
+```
+
+ou avec un répertoire spécifique:
+
+```bash
+python3 test_performance.py "Public Data Preliminary Oct 18 2025"
+```
+
+Options:
+- `--all` ou `-a`: Afficher tous les résultats détaillés
+
+```bash
+python3 test_performance.py --all
+```
+
+Le script affiche:
+- Score moyen (ratio de compétitivité)
+- Statistiques détaillées (min, max, médiane, quartiles)
+- Distribution des performances
+- Estimation du classement Codabench
+- Top 5 meilleures et pires instances
+
+### Génération de Résultats (Format Codabench)
+
 ```bash
 python3 TSP-rd_online.py <repertoire_instances> <repertoire_resultats>
 ```
@@ -80,10 +110,11 @@ Exemple:
 
 ```
 tsp-rd-online/
-├── TSP-rd_online.py                 # Code principal
+├── TSP-rd_online.py                 # Code principal de l'algorithme
+├── test_performance.py              # Script de test et validation ⭐
 ├── Public Data Preliminary.../      # Instances de test (38 fichiers)
 ├── results/                         # Résultats des exécutions
-├── README.md                        # Ce fichier
+├── README.md                        # Documentation complète
 ├── README                           # Instructions originales
 └── metadata                         # Métadonnées (ne pas supprimer)
 ```
@@ -103,6 +134,48 @@ Si randomisé, le résultat sera la moyenne de 10 exécutions.
 
 - **Temps**: O(n²) par insertion, soit O(n³) au total pour n sommets
 - **Espace**: O(n²) pour stocker les distances
+
+## Test de Performance
+
+Le script `test_performance.py` permet de valider votre algorithme avant soumission:
+
+### Fonctionnalités
+
+✅ **Test automatique** sur toutes les instances
+✅ **Statistiques complètes**: moyenne, médiane, min, max, quartiles
+✅ **Analyse détaillée** par instance
+✅ **Estimation du classement** Codabench
+✅ **Identification** des instances problématiques
+✅ **Interface colorée** pour une lecture facile
+
+### Exemple de Sortie
+
+```
+🚀 TEST DE PERFORMANCE - TSP-RD ONLINE 🚀
+
+Type d'algorithme: DÉTERMINISTE
+Nombre d'instances: 38
+
+📊 STATISTIQUES GLOBALES
+  Score moyen: 1.0348 (3.48% au-dessus de l'optimal)
+  ★ Solutions optimales: 7
+  ☆ Meilleures que référence: 11
+  • Excellentes (< 1.05): 23
+
+📈 ESTIMATION COMPÉTITIVITÉ
+  ▶ Excellent (≤ 1.05) ← VOUS ÊTES ICI
+  🏆 TOP 10% (excellent algorithme!)
+
+🏆 TOP 5 MEILLEURES INSTANCES
+  🥇 instance_4-1-en2.inst  Ratio: 0.9231
+  🥈 instance_4-3-en2.inst  Ratio: 0.9231
+  ...
+
+⚠️  5 PIRES INSTANCES (À améliorer)
+  1. instance_3-1.inst      Ratio: 1.3784
+  2. instance_6-v_1.inst    Ratio: 1.2443
+  ...
+```
 
 ## Améliorations Possibles
 
