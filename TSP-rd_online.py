@@ -81,27 +81,32 @@ def mon_algo_est_deterministe():
 # Fonctions auxiliaires pour l'algorithme
 ##############################################################
 
-def get_distance(sommet1, sommet2, sigma_list):
+# Cache global pour les distances et les temps d'arrivée (optimisation performance)
+_distance_cache = {}
+_sommet_temps = {}
+_sommet_voisins = {}
+
+def get_distance(sommet1, sommet2, sigma_list=None):
     """
-    Récupère la distance entre deux sommets.
+    Récupère la distance entre deux sommets (version optimisée avec cache).
     La distance est stockée dans le dictionnaire du sommet arrivé en dernier.
     """
     if sommet1 == sommet2:
         return 0
 
-    # Trouver les temps d'arrivée
-    time1 = None
-    time2 = None
-    for item, t in sigma_list:
-        if sommet1 in item:
-            time1 = t
-        if sommet2 in item:
-            time2 = t
+    # Vérifier le cache d'abord
+    cache_key = (sommet1, sommet2) if sommet1 < sommet2 else (sommet2, sommet1)
+    if cache_key in _distance_cache:
+        return _distance_cache[cache_key]
 
-    # Le sommet arrivé en dernier contient la distance
+    # Si pas dans le cache, calculer et mettre en cache
+    time1 = _sommet_temps.get(sommet1)
+    time2 = _sommet_temps.get(sommet2)
+
     if time1 is None or time2 is None:
         return float('inf')
 
+    # Le sommet arrivé en dernier contient la distance
     if time1 >= time2:
         outer_key = sommet1
         inner_key = sommet2
@@ -109,25 +114,35 @@ def get_distance(sommet1, sommet2, sigma_list):
         outer_key = sommet2
         inner_key = sommet1
 
-    # Chercher la distance dans sigma
-    for item, _ in sigma_list:
-        if outer_key in item:
-            inner_dict = item[outer_key]
-            if inner_key in inner_dict:
-                return inner_dict[inner_key]
+    # Chercher dans les voisins du sommet
+    if outer_key in _sommet_voisins and inner_key in _sommet_voisins[outer_key]:
+        distance = _sommet_voisins[outer_key][inner_key]
+        _distance_cache[cache_key] = distance
+        return distance
 
     return float('inf')
 
 
-def calcul_cout_insertion(sommet, position, tour, sigma_list):
+def _update_cache(sommet_dict, temps):
     """
-    Calcule le coût d'insertion d'un sommet à une position donnée dans le tour.
+    Met à jour le cache avec un nouveau sommet.
+    """
+    sommet = list(sommet_dict.keys())[0]
+    voisins = sommet_dict[sommet]
+
+    _sommet_temps[sommet] = temps
+    _sommet_voisins[sommet] = voisins
+
+
+def calcul_cout_insertion(sommet, position, tour, sigma_list=None):
+    """
+    Calcule le coût d'insertion d'un sommet à une position donnée dans le tour (version optimisée).
 
     Args:
         sommet: le sommet à insérer
         position: la position où insérer (entre position et position+1)
         tour: le tour actuel
-        sigma_list: la liste complète des sommets découverts
+        sigma_list: non utilisé (conservé pour compatibilité)
 
     Returns:
         Le coût d'insertion (peut être négatif si ça améliore le tour)
@@ -139,18 +154,18 @@ def calcul_cout_insertion(sommet, position, tour, sigma_list):
     sommet_apres = tour[(position + 1) % len(tour)]
 
     # Coût actuel entre sommet_avant et sommet_apres
-    cout_actuel = get_distance(sommet_avant, sommet_apres, sigma_list)
+    cout_actuel = get_distance(sommet_avant, sommet_apres)
 
     # Nouveau coût avec le sommet inséré
-    nouveau_cout = get_distance(sommet_avant, sommet, sigma_list) + \
-                   get_distance(sommet, sommet_apres, sigma_list)
+    nouveau_cout = get_distance(sommet_avant, sommet) + \
+                   get_distance(sommet, sommet_apres)
 
     return nouveau_cout - cout_actuel
 
 
-def trouver_meilleure_position(sommet, tour, sigma_list):
+def trouver_meilleure_position(sommet, tour, sigma_list=None):
     """
-    Trouve la meilleure position pour insérer un sommet dans le tour.
+    Trouve la meilleure position pour insérer un sommet dans le tour (version optimisée).
     Respecte la contrainte: un sommet arrivant au temps t ne peut pas
     être placé avant la position t dans le tour.
 
@@ -160,19 +175,15 @@ def trouver_meilleure_position(sommet, tour, sigma_list):
     if len(tour) <= 1:
         return len(tour)
 
-    # Trouver le temps d'arrivée du sommet
-    temps_arrivee = None
-    for item, t in sigma_list:
-        if sommet in item:
-            temps_arrivee = t
-            break
+    # Trouver le temps d'arrivée du sommet (depuis le cache)
+    temps_arrivee = _sommet_temps.get(sommet, 0)
 
     meilleur_cout = float('inf')
-    meilleure_position = max(1, temps_arrivee) if temps_arrivee is not None else 1
+    meilleure_position = max(1, temps_arrivee)
 
     # Essayer toutes les positions possibles >= temps_arrivee
     # (contrainte: position >= temps d'arrivée)
-    position_min = temps_arrivee if temps_arrivee is not None else 0
+    position_min = temps_arrivee
 
     for i in range(len(tour)):
         # On peut insérer après la position i, donc la nouvelle position sera i+1
@@ -182,7 +193,7 @@ def trouver_meilleure_position(sommet, tour, sigma_list):
         if nouvelle_position < position_min:
             continue
 
-        cout = calcul_cout_insertion(sommet, i, tour, sigma_list)
+        cout = calcul_cout_insertion(sommet, i, tour)
         if cout < meilleur_cout:
             meilleur_cout = cout
             meilleure_position = i
@@ -203,7 +214,7 @@ def TSP_rd_online(it, next_sommet, sommets_decouverts, sol_online):
 
     """
     ###################################################################################
-    # Algorithme: Cheapest Insertion
+    # Algorithme: Cheapest Insertion (version optimisée)
     # À chaque appel, on reçoit un nouveau sommet à traiter
     # On l'insère à la position qui minimise l'augmentation du tour
     ###################################################################################
@@ -211,6 +222,16 @@ def TSP_rd_online(it, next_sommet, sommets_decouverts, sol_online):
     # Récupérer le sommet et son temps d'arrivée
     sommet_dict, temps_actuel = next_sommet
     sommet_nom = list(sommet_dict.keys())[0]
+
+    # Réinitialiser le cache au début de chaque test (quand on reçoit le premier sommet A)
+    if len(sol_online) == 0 and sommet_nom == 'A':
+        global _distance_cache, _sommet_temps, _sommet_voisins
+        _distance_cache = {}
+        _sommet_temps = {}
+        _sommet_voisins = {}
+
+    # Mettre à jour le cache pour ce nouveau sommet (optimisation performance)
+    _update_cache(sommet_dict, temps_actuel)
 
     # Ajouter le nouveau sommet à la liste des sommets découverts
     sommets_decouverts.append(next_sommet)
@@ -223,7 +244,7 @@ def TSP_rd_online(it, next_sommet, sommets_decouverts, sol_online):
     # Si c'est un autre sommet que A, on l'insère dans le tour
     if sommet_nom != 'A':
         # Trouver la meilleure position pour insérer ce sommet
-        meilleure_position = trouver_meilleure_position(sommet_nom, sol_online, sommets_decouverts)
+        meilleure_position = trouver_meilleure_position(sommet_nom, sol_online)
 
         # Insérer le sommet à la meilleure position
         sol_online.insert(meilleure_position + 1, sommet_nom)
