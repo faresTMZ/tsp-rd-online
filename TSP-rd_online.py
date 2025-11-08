@@ -78,35 +78,211 @@ def mon_algo_est_deterministe():
 
 
 ##############################################################
+# Mes fonctions helper pour l'algo
+##############################################################
+
+# j'utilise des dicts globaux pour stocker les infos et pas recalculer a chaque fois
+_distance_cache = {}
+_sommet_temps = {}
+_sommet_voisins = {}
+
+def get_distance(sommet1, sommet2, sigma_list=None):
+    # recupere la distance entre 2 sommets
+    # j'ai mis un cache parce que sinon ca rame trop
+    if sommet1 == sommet2:
+        return 0
+
+    # check le cache avant
+    cache_key = (sommet1, sommet2) if sommet1 < sommet2 else (sommet2, sommet1)
+    if cache_key in _distance_cache:
+        return _distance_cache[cache_key]
+
+    # sinon faut calculer
+    time1 = _sommet_temps.get(sommet1)
+    time2 = _sommet_temps.get(sommet2)
+
+    if time1 is None or time2 is None:
+        return float('inf')
+
+    # le sommet qui arrive en dernier a la distance vers les autres dans son dict
+    if time1 >= time2:
+        outer_key = sommet1
+        inner_key = sommet2
+    else:
+        outer_key = sommet2
+        inner_key = sommet1
+
+    # cherche dans les voisins
+    if outer_key in _sommet_voisins and inner_key in _sommet_voisins[outer_key]:
+        distance = _sommet_voisins[outer_key][inner_key]
+        _distance_cache[cache_key] = distance
+        return distance
+
+    return float('inf')
+
+
+def _update_cache(sommet_dict, temps):
+    # met a jour les caches quand un nouveau sommet arrive
+    sommet = list(sommet_dict.keys())[0]
+    voisins = sommet_dict[sommet]
+
+    _sommet_temps[sommet] = temps
+    _sommet_voisins[sommet] = voisins
+
+
+def calcul_cout_insertion(sommet, position, tour, sigma_list=None):
+    # calcule combien ca coute d'inserer un sommet a une position donnee
+    # retourne la difference de cout (peut etre negatif si ca ameliore)
+    if len(tour) < 2:
+        return 0
+
+    sommet_avant = tour[position]
+    sommet_apres = tour[(position + 1) % len(tour)]
+
+    # cout actuel de l'arete qu'on va casser
+    cout_actuel = get_distance(sommet_avant, sommet_apres)
+
+    # cout si on insere le nouveau sommet entre les deux
+    nouveau_cout = get_distance(sommet_avant, sommet) + \
+                   get_distance(sommet, sommet_apres)
+
+    return nouveau_cout - cout_actuel
+
+
+def trouver_meilleure_position(sommet, tour, sigma_list=None):
+    # trouve ou inserer le sommet pour minimiser le cout
+    # IMPORTANT: faut respecter la contrainte temporelle (position >= temps arrivee)
+    if len(tour) <= 1:
+        return len(tour)
+
+    temps_arrivee = _sommet_temps.get(sommet, 0)
+
+    meilleur_cout = float('inf')
+    meilleure_position = max(1, temps_arrivee)
+
+    # on teste toutes les positions valides
+    position_min = temps_arrivee
+
+    for i in range(len(tour)):
+        nouvelle_position = i + 1
+
+        # skip si ca respecte pas la contrainte de temps
+        if nouvelle_position < position_min:
+            continue
+
+        cout = calcul_cout_insertion(sommet, i, tour)
+        if cout < meilleur_cout:
+            meilleur_cout = cout
+            meilleure_position = i
+
+    return meilleure_position
+
+
+def verifier_contrainte_temporelle_2opt(tour, i, j):
+    # verifie que si on reverse le segment [i+1, j], les contraintes temporelles sont respectees
+    # apres le reverse, le sommet a la position k aura tour[i+1+j-k]
+    for k in range(i+1, j+1):
+        sommet_a_verifier = tour[j - (k - i - 1)]  # le sommet qui sera a la position k apres reverse
+        temps_arrivee = _sommet_temps.get(sommet_a_verifier, 0)
+        if k < temps_arrivee:
+            return False
+    return True
+
+
+def ameliorer_2opt_local(tour, pos_insertion, window=5):
+    # essaie d'ameliorer le tour localement avec 2-opt autour de la zone d'insertion
+    # window = taille de la fenetre autour de l'insertion (pas tout le tour sinon trop lent)
+    # IMPORTANT: faut respecter les contraintes temporelles!
+    n = len(tour)
+    if n < 4:  # besoin d'au moins 4 sommets pour 2-opt
+        return tour
+
+    amelioration = True
+    iterations = 0
+    max_iterations = 3  # limite pour pas depasser les 120s
+
+    while amelioration and iterations < max_iterations:
+        amelioration = False
+        iterations += 1
+
+        # on regarde juste autour de la zone d'insertion
+        start = max(1, pos_insertion - window)
+        end = min(n-1, pos_insertion + window)
+
+        for i in range(start, end):
+            for j in range(i+2, min(end+1, n)):
+                # calcul gain si on inverse le segment [i+1, j]
+                # avant: ... -> tour[i] -> tour[i+1] -> ... -> tour[j] -> tour[j+1] -> ...
+                # apres:  ... -> tour[i] -> tour[j] -> ... -> tour[i+1] -> tour[j+1] -> ...
+
+                # check que ca respecte les contraintes temporelles
+                if not verifier_contrainte_temporelle_2opt(tour, i, j):
+                    continue
+
+                cout_avant = get_distance(tour[i], tour[i+1]) + get_distance(tour[j], tour[(j+1) % n])
+                cout_apres = get_distance(tour[i], tour[j]) + get_distance(tour[i+1], tour[(j+1) % n])
+
+                if cout_apres < cout_avant:
+                    # on reverse le segment
+                    tour[i+1:j+1] = reversed(tour[i+1:j+1])
+                    amelioration = True
+                    break
+            if amelioration:
+                break
+
+    return tour
+
+
+##############################################################
 # La fonction à completer pour la compétition
 ##############################################################
 
 def TSP_rd_online(it, next_sommet, sommets_decouverts, sol_online):
     """
-        À faire:         
+        À faire:
         - Écrire une fonction qui construit un tour hamiltonien au fur et à mesure de découverte du graphe en minimisant sa longueur
         le résultat est répertorié dans une variable globale sol_online, liste des sommets du graphe constituant un tour
         ATTENTION : le sommet du début du tour : toujours 'A', le seul sommet disponible à t=0
-  
-    """
-    ###################################################################################
-    # Complétez cette fonction : construisez un tour hamiltonien en minimisant sa longueur
-    # au fur et à mesure de découverte du graphe ; l'algorithme avance en temps ;
-    # il est possible que plusieurs sommets soient découverts au même moment ;
-    # le tour est construit avec des sommets qui viennent d'être découverts et ceux qui ont déjà été découverts,
-    #  mais ils ne sont pas encore intégrés dans la solution
-    ###################################################################################
-    # ATTENTION :
-    #  Le tour doit commencer par le sommet 'A' et finir par le sommet 'A'.
-    # Ce sommet est toujours le seul à apparaître dans la séquence.
-    # ###################################################################################
-    # ATTENTION !!!!
-    # Il'itérateur it est attaché à la séquence de pouvoir lire les sommets arrivant à l'instant t ;
-    # vous devrez retourner it pointant vers les sommets arrivant à l'instant t+1
-    # pour que la fonction puisse continuer à fonctionner ;
-    # ###################################################################################
 
-    return it, sommets_decouverts, sol_online # retour nécessaire pour ingestion
+    """
+    # Mon algo: Cheapest Insertion + amelioration locale
+    # L'idee c'est d'inserer chaque nouveau sommet a la position qui coute le moins cher
+    # et ensuite d'essayer d'ameliorer un peu avec du 2-opt local
+
+    sommet_dict, temps_actuel = next_sommet
+    sommet_nom = list(sommet_dict.keys())[0]
+
+    # reset les caches au debut (quand on recoit A)
+    if len(sol_online) == 0 and sommet_nom == 'A':
+        global _distance_cache, _sommet_temps, _sommet_voisins
+        _distance_cache = {}
+        _sommet_temps = {}
+        _sommet_voisins = {}
+
+    # update le cache avec le nouveau sommet
+    _update_cache(sommet_dict, temps_actuel)
+
+    sommets_decouverts.append(next_sommet)
+
+    # si c'est le debut on met juste A
+    if len(sol_online) == 0 and sommet_nom == 'A':
+        sol_online.append('A')
+        return it, sommets_decouverts, sol_online
+
+    # pour les autres sommets
+    if sommet_nom != 'A':
+        # trouve la meilleure position
+        meilleure_position = trouver_meilleure_position(sommet_nom, sol_online)
+
+        # insere le sommet
+        sol_online.insert(meilleure_position + 1, sommet_nom)
+
+        # essaie d'ameliorer localement (mais pas trop pour garder ca rapide)
+        # je fais ca seulement si le tour est pas trop petit
+        if len(sol_online) > 4:
+            ameliorer_2opt_local(sol_online, meilleure_position + 1)
+
+    return it, sommets_decouverts, sol_online
 
 ##############################################################
 #### LISEZ LE README et NE PAS MODIFIER LE CODE SUIVANT ####
