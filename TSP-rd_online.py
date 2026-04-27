@@ -118,12 +118,12 @@ if __name__=="__main__":
     
     # un repertoire des graphes en entree doit être passé en parametre 1
     if not os.path.isdir(input_dir):
-        print(input_dir, "doesn't exist")
+        print(input_dir, "n'existe pas")
         exit()
 
     # un repertoire pour enregistrer les dominants doit être passé en parametre 2
     if not os.path.isdir(output_dir):
-        print(output_dir, "doesn't exist")
+        print(output_dir, "n'existe pas")
         exit()       
 	
     # fichier des reponses depose dans le output_dir et annote par date/heure

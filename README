@@ -1,13 +1,10 @@
-Compétion Algorithmique Avancée CS 3A INFO 2025/26 -- TSP online : TSP-rd (Travelling Salesman Problem with Release Dates)
+CompÃ©tition Algorithmique AvancÃ©e CS 3A INFO 2025/26 -- TSP online : TSP-rd (Travelling Salesman Problem with Release Dates)
 
 Consignes:
 -- Ne modifiez pas et n'effacez pas le fichier 'metadata'. Gardez-le dans l'archive de votre soumission.
--- Completez le code de 'Slow-Fast-Scheduling_online.py' mais ne touchez pas au '__main__'
--- Pour indiquer si votre algoritme est détérministe ou randomisé, modifiez la fonction mon_algo_est_deterministe() qui retourne une valeur logique (True par défaut)
--- Pour tester votre code utilisez la commande suivante : 
-       * python3 Slow-Fast-Scheduling_online.py rep_data_set rep_answer
-       * 'rep_data_set' correspond au répertoire contenant les fichiers instances
-       * 'rep_answer' correspond au répertoire où le fichier des réponses sera sauvegardé
-
-
-
+-- ComplÃ©tez le code de 'TSP-rd_online.py' mais ne touchez pas au '__main__'
+-- Pour indiquer si votre algorithme est dÃ©terministe ou randomisÃ©, modifiez la fonction mon_algo_est_deterministe() qui retourne une valeur logique (True par dÃ©faut)
+-- Pour tester votre code utilisez la commande suivante :
+       * python3 TSP-rd_online.py rep_data_set rep_answer
+       * 'rep_data_set' correspond au rÃ©pertoire contenant les fichiers instances
+       * 'rep_answer' correspond au rÃ©pertoire oÃ¹ le fichier des rÃ©ponses sera sauvegardÃ©
